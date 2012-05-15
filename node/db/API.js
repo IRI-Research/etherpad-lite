@@ -112,7 +112,15 @@ exports.getText = function(padID, rev, callback)
   getPadSafe(padID, true, function(err, pad)
   {
     if(ERR(err, callback)) return;
-    
+
+    data = {};
+    accumulator = function(key, value) {
+  	  data[key] = value;
+  	  if ("text" in data && "timestamp" in data) {
+  		  callback(null,data);
+  	  }
+    }
+
     //the client asked for a special revision
     if(rev !== undefined)
     {
@@ -122,21 +130,28 @@ exports.getText = function(padID, rev, callback)
         callback(new customError("rev is higher than the head revision of the pad","apierror"));
         return;
       }
-      
+                 
       //get the text of this revision
       pad.getInternalRevisionAText(rev, function(err, atext)
       {
         if(ERR(err, callback)) return;
-        
-        data = {text: atext.text};
-        
-        callback(null, data);
-      })
+        accumulator('text', atext);
+      });
+
+      pad.getRevisionDate(rev, function(err, ts) {
+	    	if(ERR(err, callback)) return;
+	        accumulator('timestamp', ts);
+	  });
+      
     }
     //the client wants the latest text, lets return it to him
     else
     {
-      callback(null, {"text": pad.text()});
+      accumulator("text", pad.text());
+      pad.getRevisionDate(pad.getHeadRevisionNumber(), function(err, ts) {
+	    	if(ERR(err, callback)) return;
+	        accumulator('timestamp', ts);
+	  });
     }
   });
 }
@@ -210,6 +225,15 @@ exports.getHTML = function(padID, rev, callback)
   {
     if(ERR(err, callback)) return;
     
+    data = {};
+    accumulator = function(key, value) {
+  	  data[key] = value;
+  	  if ("html" in data && "timestamp" in data) {
+  		  callback(null,data);
+  	  }
+    }
+
+    
     //the client asked for a special revision
     if(rev !== undefined)
     {
@@ -220,24 +244,30 @@ exports.getHTML = function(padID, rev, callback)
         return;
       }
      
-      //get the html of this revision 
+      //get the html of this revision      
+      
+      pad.getRevisionDate(rev, function(err, ts) {
+	    	if(ERR(err, callback)) return;
+	        accumulator('timestamp', ts);
+	  });
+      
       exportHtml.getPadHTML(pad, rev, function(err, html)
       {
           if(ERR(err, callback)) return;
-          data = {html: html};
-          callback(null, data);
+          accumulator("html", html);
       });
     }
     //the client wants the latest text, lets return it to him
     else
     {
+      pad.getRevisionDate(pad.getHeadRevisionNumber(), function(err, ts) {
+	    	if(ERR(err, callback)) return;
+	        accumulator('timestamp', ts);
+	  });
       exportHtml.getPadHTML(pad, undefined, function (err, html)
       {
         if(ERR(err, callback)) return;
-        
-        data = {html: html};
-          
-        callback(null, data);
+        accumulator('html', html);
       });
     }
   });
