@@ -116,7 +116,7 @@ exports.getText = function(padID, rev, callback)
     data = {};
     accumulator = function(key, value) {
   	  data[key] = value;
-  	  if ("text" in data && "timestamp" in data) {
+  	  if ("text" in data && "timestamp" in data && "author" in data) {
   		  callback(null,data);
   	  }
     }
@@ -138,19 +138,41 @@ exports.getText = function(padID, rev, callback)
         accumulator('text', atext);
       });
 
+      //get the timestamp of this revision
       pad.getRevisionDate(rev, function(err, ts) {
 	    	if(ERR(err, callback)) return;
 	        accumulator('timestamp', ts);
+	  });
+      
+      //get the author of this revision
+      pad.getRevisionAuthor(rev, function(err, author) {
+	    	if(ERR(err, callback)) return;
+	    	authorManager.getAuthorName(author, function(err, name) {
+	    		if(ERR(err, callback)) return;
+	    		accumulator('author', {id:author, name:name});
+	    	});
 	  });
       
     }
     //the client wants the latest text, lets return it to him
     else
     {
+      rev = pad.getHeadRevisionNumber();
       accumulator("text", pad.text());
-      pad.getRevisionDate(pad.getHeadRevisionNumber(), function(err, ts) {
+      
+      // get the timestamp
+      pad.getRevisionDate(rev , function(err, ts) {
 	    	if(ERR(err, callback)) return;
 	        accumulator('timestamp', ts);
+	  });
+
+      //get the author of this revision
+      pad.getRevisionAuthor(rev, function(err, author) {
+	    	if(ERR(err, callback)) return;
+	    	authorManager.getAuthorName(author, function(err, name) {
+	    		if(ERR(err, callback)) return;
+	    		accumulator('author', {id:author, name:name});
+	    	});
 	  });
     }
   });
@@ -228,7 +250,7 @@ exports.getHTML = function(padID, rev, callback)
     data = {};
     accumulator = function(key, value) {
   	  data[key] = value;
-  	  if ("html" in data && "timestamp" in data) {
+  	  if ("html" in data && "timestamp" in data && "author" in data) {
   		  callback(null,data);
   	  }
     }
@@ -250,7 +272,15 @@ exports.getHTML = function(padID, rev, callback)
 	    	if(ERR(err, callback)) return;
 	        accumulator('timestamp', ts);
 	  });
-      
+
+      pad.getRevisionAuthor(rev, function(err, author) {
+	    	if(ERR(err, callback)) return;
+	    	authorManager.getAuthorName(author, function(err, name) {
+	    		if(ERR(err, callback)) return;
+	    		accumulator('author', {id:author, name:name});
+	    	});
+	  });
+
       exportHtml.getPadHTML(pad, rev, function(err, html)
       {
           if(ERR(err, callback)) return;
@@ -260,9 +290,17 @@ exports.getHTML = function(padID, rev, callback)
     //the client wants the latest text, lets return it to him
     else
     {
-      pad.getRevisionDate(pad.getHeadRevisionNumber(), function(err, ts) {
+      rev = pad.getHeadRevisionNumber();
+      pad.getRevisionDate(rev, function(err, ts) {
 	    	if(ERR(err, callback)) return;
 	        accumulator('timestamp', ts);
+	  });
+      pad.getRevisionAuthor(rev, function(err, author) {
+	    	if(ERR(err, callback)) return;
+	    	authorManager.getAuthorName(author, function(err, name) {
+	    		if(ERR(err, callback)) return;
+	    		accumulator('author', {id:author, name:name});
+	    	});
 	  });
       exportHtml.getPadHTML(pad, undefined, function (err, html)
       {
