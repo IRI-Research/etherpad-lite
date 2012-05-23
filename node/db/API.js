@@ -114,12 +114,7 @@ exports.getText = function(padID, rev, callback)
     if(ERR(err, callback)) return;
 
     data = {};
-    accumulator = function(key, value) {
-  	  data[key] = value;
-  	  if ("text" in data && "timestamp" in data && "author" in data) {
-  		  callback(null,data);
-  	  }
-    }
+    accumulator = getAccumulator(data, ["text", "timestamp", "author"], callback);
 
     //the client asked for a special revision
     if(rev !== undefined)
@@ -144,15 +139,12 @@ exports.getText = function(padID, rev, callback)
 	        accumulator('timestamp', ts);
 	  });
       
-      //get the author of this revision
-      pad.getRevisionAuthor(rev, function(err, author) {
-	    	if(ERR(err, callback)) return;
-	    	authorManager.getAuthorName(author, function(err, name) {
-	    		if(ERR(err, callback)) return;
-	    		accumulator('author', {id:author, name:name});
-	    	});
-	  });
-      
+      getAuthorInfo(pad, rev, function(err, data)
+      {
+    	  if(ERR(err, callback)) return;
+    	  accumulator('author', data);
+      });
+            
     }
     //the client wants the latest text, lets return it to him
     else
@@ -167,13 +159,11 @@ exports.getText = function(padID, rev, callback)
 	  });
 
       //get the author of this revision
-      pad.getRevisionAuthor(rev, function(err, author) {
-	    	if(ERR(err, callback)) return;
-	    	authorManager.getAuthorName(author, function(err, name) {
-	    		if(ERR(err, callback)) return;
-	    		accumulator('author', {id:author, name:name});
-	    	});
-	  });
+      getAuthorInfo(pad, rev, function(err, data)
+      {
+    	  if(ERR(err, callback)) return;
+    	  accumulator('author', data);
+      });
     }
   });
 }
@@ -248,12 +238,7 @@ exports.getHTML = function(padID, rev, callback)
     if(ERR(err, callback)) return;
     
     data = {};
-    accumulator = function(key, value) {
-  	  data[key] = value;
-  	  if ("html" in data && "timestamp" in data && "author" in data) {
-  		  callback(null,data);
-  	  }
-    }
+    accumulator = getAccumulator(data, ['html','timestamp','author'], callback);
 
     
     //the client asked for a special revision
@@ -269,22 +254,20 @@ exports.getHTML = function(padID, rev, callback)
       //get the html of this revision      
       
       pad.getRevisionDate(rev, function(err, ts) {
-	    	if(ERR(err, callback)) return;
-	        accumulator('timestamp', ts);
+	    if(ERR(err, callback)) return;
+	    accumulator('timestamp', ts);
 	  });
 
-      pad.getRevisionAuthor(rev, function(err, author) {
-	    	if(ERR(err, callback)) return;
-	    	authorManager.getAuthorName(author, function(err, name) {
-	    		if(ERR(err, callback)) return;
-	    		accumulator('author', {id:author, name:name});
-	    	});
-	  });
+      getAuthorInfo(pad, rev, function(err, data)
+      {
+    	if(ERR(err, callback)) return;
+    	accumulator('author', data);
+      });
 
       exportHtml.getPadHTML(pad, rev, function(err, html)
       {
-          if(ERR(err, callback)) return;
-          accumulator("html", html);
+        if(ERR(err, callback)) return;
+        accumulator("html", html);
       });
     }
     //the client wants the latest text, lets return it to him
@@ -295,18 +278,19 @@ exports.getHTML = function(padID, rev, callback)
 	    	if(ERR(err, callback)) return;
 	        accumulator('timestamp', ts);
 	  });
-      pad.getRevisionAuthor(rev, function(err, author) {
-	    	if(ERR(err, callback)) return;
-	    	authorManager.getAuthorName(author, function(err, name) {
-	    		if(ERR(err, callback)) return;
-	    		accumulator('author', {id:author, name:name});
-	    	});
-	  });
+      
+      getAuthorInfo(pad, rev, function(err, data)
+      {
+		if(ERR(err, callback)) return;
+		accumulator('author', data);
+      });
+      
       exportHtml.getPadHTML(pad, undefined, function (err, html)
       {
         if(ERR(err, callback)) return;
         accumulator('html', html);
       });
+      
     }
   });
 }
@@ -539,6 +523,42 @@ exports.isPasswordProtected = function(padID, callback)
 function is_int(value)
 { 
   return (parseFloat(value) == parseInt(value)) && !isNaN(value)
+}
+
+function getAccumulator(data, key_list, callback) {
+  return function(key, value) {
+    data[key] = value;
+    var test_key = true;
+    for(k in key_list) {
+	  test_key = test_key && (k in data);
+    }
+    if (test_key) {
+	  callback(null,data);
+  	}
+  }
+}
+
+function getAuthorInfo(pad, rev, callback) {
+
+  var data = {};  
+  
+  acc = getAccumulator(data, ["id","name","colorId"], callback);
+
+  pad.getRevisionAuthor(rev, function(err, author) {
+    if(ERR(err, callback)) return;
+    	
+    acc('id', author); 
+    	
+	authorManager.getAuthorName(author, function(err, name) {
+	  if(ERR(err, callback)) return;
+	  acc('name', name);
+	});
+	
+	authorManager.getAuthorColorId(author, function(err, colorId) {
+	  if(ERR(err, callback)) return;
+	  acc('colorId', colorId);
+	});
+  });  
 }
 
 //gets a pad safe
